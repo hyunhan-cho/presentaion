@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Floorida - Backend Implementation</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+/* 1. 기본 설정 */
+:root {
+    --bg-color: #f8f9fa; /* 밝은 회색 배경 */
+    --slide-bg: #ffffff; /* 슬라이드 흰색 */
+    --text-main: #212529;
+    --text-sub: #495057;
+    --accent-blue: #0969da; /* GitHub Blue */
+    --accent-purple: #8250df;
+    --accent-green: #1a7f37;
+    --accent-red: #cf222e;
+    --border-color: #e9ecef;
+    --code-bg: #f6f8fa;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    background-color: var(--bg-color);
+    font-family: 'Pretendard', sans-serif;
+    color: var(--text-main);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 40px;
+    padding: 40px 20px;
+}
+
+/* 2. 슬라이드 컨테이너 (반응형 수정) */
+.slide {
+    width: 90%;
+    max-width: 1400px;
+    /* 16:9 비율 유지하되, 컨텐츠가 많으면 늘어남 */
+    aspect-ratio: 16/9;
+    min-height: 600px; 
+    
+    background-color: var(--slide-bg);
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+    position: relative;
+    overflow: hidden;
+    padding: 4vw; /* 내부 여백도 반응형 */
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #dfe1e5;
+}
+
+/* 작은 화면 대응 */
+@media (max-width: 1024px) {
+    .slide {
+        width: 95%;
+        aspect-ratio: auto;
+        height: auto;
+        padding: 40px;
+    }
+}
+
+/* 3. 헤더 스타일 */
+.slide-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.slide-title {
+    font-size: clamp(24px, 3vw, 42px); /* 폰트 크기 반응형 */
+    font-weight: 800;
+    color: #1a1a1a;
+    letter-spacing: -0.03em;
+}
+
+.slide-badge {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-sub);
+    background: #f1f3f5;
+    padding: 8px 16px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+
+/* 4. 레이아웃 */
+.content-split {
+    display: grid;
+    grid-template-columns: 40% 60%;
+    gap: 40px;
+    height: 100%;
+    overflow: hidden; /* 내부 스크롤을 위해 */
+}
+
+@media (max-width: 1024px) {
+    .content-split {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto;
+        gap: 30px;
+        overflow: visible;
+    }
+}
+
+.text-area {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.code-area {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    min-height: 400px; /* 모바일에서 코드 영역 확보 */
+}
+
+/* 5. 타이포그래피 */
+h3 {
+    font-size: clamp(20px, 2vw, 26px);
+    color: var(--accent-blue);
+    margin-bottom: 16px;
+    font-weight: 700;
+}
+
+p {
+    font-size: clamp(16px, 1.5vw, 20px);
+    line-height: 1.6;
+    color: var(--text-sub);
+    margin-bottom: 24px;
+    word-break: keep-all;
+}
+
+ul {
+    list-style: none;
+    padding-left: 0;
+}
+
+li {
+    font-size: clamp(15px, 1.4vw, 19px);
+    margin-bottom: 14px;
+    color: var(--text-main);
+    padding-left: 24px;
+    position: relative;
+    line-height: 1.5;
+}
+
+li::before {
+    content: '•';
+    color: var(--accent-blue);
+    font-weight: bold;
+    font-size: 24px;
+    position: absolute;
+    left: 0;
+    top: -4px;
+}
+
+/* 6. 코드 에디터 (Light Theme) */
+.code-window {
+    background-color: var(--code-bg);
+    border: 1px solid #d0d7de;
+    border-radius: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.window-header {
+    background-color: #ffffff;
+    padding: 12px 16px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    border-bottom: 1px solid #d0d7de;
+    flex-shrink: 0;
+}
+
+.circle { width: 12px; height: 12px; border-radius: 50%; }
+.circle.red { background: #ff5f57; border: 1px solid #e0443e; }
+.circle.yellow { background: #febc2e; border: 1px solid #d89e24; }
+.circle.green { background: #28c840; border: 1px solid #1aab29; }
+
+.filename {
+    margin-left: 12px;
+    font-size: 14px;
+    color: #57606a;
+    font-weight: 600;
+}
+
+.code-content {
+    padding: 24px;
+    color: #24292f;
+    font-size: 14px; /* 코드 폰트 약간 축소 */
+    line-height: 1.6;
+    overflow: auto;
+    flex-grow: 1;
+    white-space: pre;
+}
+
+/* Syntax Highlighting (GitHub Light) */
+.kw { color: #cf222e; font-weight: 600; } /* keyword */
+.cls { color: #953800; } /* class/type */
+.str { color: #0a3069; } /* string */
+.fn { color: #8250df; } /* function */
+.cmt { color: #6e7781; font-style: italic; } /* comment */
+.anno { color: #953800; } /* annotation */
+.num { color: #0550ae; } /* number */
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<!-- Slide 1: Cover -->
+<div class="slide" style="justify-content: center; align-items: center; text-align: center; background: linear-gradient(135deg, #ffffff 0%, #f0f7ff 100%); aspect-ratio: 16/9;">
+    <div style="margin-bottom: 30px;">
+        <span style="background: #0969da; color: white; padding: 10px 20px; border-radius: 30px; font-weight: 700; font-family: 'JetBrains Mono'; margin: 0 5px; font-size: 14px;">Spring Boot 3.5.7</span>
+        <span style="background: #1f2328; color: white; padding: 10px 20px; border-radius: 30px; font-weight: 700; font-family: 'JetBrains Mono'; margin: 0 5px; font-size: 14px;">Java 17</span>
+    </div>
+    <h1 style="font-size: clamp(40px, 6vw, 80px); font-weight: 900; color: #1a1a1a; margin-bottom: 10px; letter-spacing: -2px;">Floorida</h1>
+    <h2 style="font-size: clamp(20px, 3vw, 36px); color: #57606a; font-weight: 500; margin-bottom: 60px;">Backend Implementation Review</h2>
+    
+    <div style="display: flex; gap: 40px; flex-wrap: wrap; justify-content: center;">
+        <div style="text-align: center;">
+            <div style="width: 80px; height: 80px; background: #ddf4ff; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px;">
+                <i class="fa-solid fa-shield-halved" style="font-size: 32px; color: #0969da;"></i>
+            </div>
+            <span style="font-weight: 700; color: #0969da;">Auth</span>
+        </div>
+        <div style="text-align: center;">
+            <div style="width: 80px; height: 80px; background: #fff8c5; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px;">
+                <i class="fa-solid fa-wand-magic-sparkles" style="font-size: 32px; color: #9a6700;"></i>
+            </div>
+            <span style="font-weight: 700; color: #9a6700;">AI Plan</span>
+        </div>
+        <div style="text-align: center;">
+            <div style="width: 80px; height: 80px; background: #dafbe1; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px;">
+                <i class="fa-solid fa-trophy" style="font-size: 32px; color: #1a7f37;"></i>
+            </div>
+            <span style="font-weight: 700; color: #1a7f37;">Gamification</span>
+        </div>
+        <div style="text-align: center;">
+            <div style="width: 80px; height: 80px; background: #ffebe9; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px;">
+                <i class="fa-solid fa-bolt" style="font-size: 32px; color: #cf222e;"></i>
+            </div>
+            <span style="font-weight: 700; color: #cf222e;">Performance</span>
+        </div>
+    </div>
+</div>
+
+<!-- Slide 2: Intro Video -->
+<div class="slide" style="justify-content: center; align-items: center; text-align: center; background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%); aspect-ratio: 16/9;">
+    <div style="width: 200px; height: 200px; background: linear-gradient(135deg, #0969da 0%, #8250df 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 40px; box-shadow: 0 20px 60px rgba(9, 105, 218, 0.3); transition: transform 0.3s ease;">
+        <i class="fa-brands fa-youtube" style="font-size: 80px; color: white;"></i>
+    </div>
+    <h2 style="font-size: clamp(28px, 4vw, 48px); font-weight: 800; color: #1a1a1a; margin-bottom: 20px;">프로젝트 인트로 영상</h2>
+    <p style="font-size: clamp(16px, 2vw, 24px); color: #57606a; margin-bottom: 50px;">Floorida의 핵심 기능과 목표를 소개합니다</p>
+    
+    <a href="https://www.youtube.com/watch?v=lfuoJ-HxBpw&si=W1vBGfRd0INdC7pe" target="_blank" 
+       style="display: inline-block; background: #cf222e; color: white; padding: 20px 50px; border-radius: 50px; font-size: 20px; font-weight: 700; text-decoration: none; box-shadow: 0 10px 30px rgba(207, 34, 46, 0.3); transition: all 0.3s ease;">
+        <i class="fa-solid fa-play" style="margin-right: 12px;"></i>영상 보기
+    </a>
+</div>
+
+<!-- Slide 3: Auth -->
+<div class="slide">
+    <div class="slide-header">
+        <div class="slide-title">1. Authentication (JWT)</div>
+        <div class="slide-badge">Security</div>
+    </div>
+    <div class="content-split">
+        <div class="text-area">
+            <h3>Custom Filter Chain</h3>
+            <p>Spring Security의 세션 방식을 비활성화하고, <strong>JWT 기반의 Stateless 인증</strong>을 구현하여 서버 확장성을 확보했습니다.</p>
+            <ul>
+                <li><strong>OncePerRequestFilter:</strong> 모든 요청에 대해 단 한 번 실행되는 필터 구현</li>
+                <li><strong>Token Validation:</strong> Authorization 헤더 파싱 및 유효성 검증</li>
+                <li><strong>SecurityContext:</strong> 인증 객체를 ThreadLocal에 저장하여 전역 접근 가능</li>
+            </ul>
+        </div>
+        <div class="code-area">
+            <div class="code-window">
+                <div class="window-header">
+                    <div class="circle red"></div><div class="circle yellow"></div><div class="circle green"></div>
+                    <span class="filename">JwtAuthenticationFilter.java</span>
+                </div>
+                <div class="code-content">
+<span class="anno">@Override</span>
+<span class="kw">protected void</span> <span class="fn">doFilterInternal</span>(<span class="cls">HttpServletRequest</span> req, ...) {
+    <span class="cls">String</span> authHeader = req.getHeader(<span class="str">"Authorization"</span>);
+    
+    <span class="cmt">// 1. 헤더 검증 (Bearer Token)</span>
+    <span class="kw">if</span> (authHeader == <span class="kw">null</span> || !authHeader.startsWith(<span class="str">"Bearer "</span>)) {
+        filterChain.doFilter(req, res);
+        <span class="kw">return</span>;
+    }
+
+    <span class="cmt">// 2. 토큰 추출 및 파싱</span>
+    <span class="cls">String</span> token = authHeader.substring(<span class="num">7</span>);
+    <span class="cls">String</span> email = jwtService.extractUsername(token);
+    
+    <span class="cmt">// 3. 사용자 검증 및 Context 설정</span>
+    <span class="kw">if</span> (email != <span class="kw">null</span> && SecurityContextHolder.getContext().getAuthentication() == <span class="kw">null</span>) {
+        <span class="cls">UserDetails</span> userDetails = <span class="kw">this</span>.userDetailsService.loadUser(email);
+        
+        <span class="kw">if</span> (jwtService.isTokenValid(token, userDetails)) {
+            <span class="var">authToken</span> = <span class="kw">new</span> <span class="cls">UsernamePasswordAuthenticationToken</span>(...);
+            SecurityContextHolder.getContext().setAuthentication(authToken);
+        }
+    }
+    filterChain.doFilter(req, res);
+}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Slide 4: AI Planning -->
+<div class="slide">
+    <div class="slide-header">
+        <div class="slide-title">2. AI Planning Service</div>
+        <div class="slide-badge">External API</div>
+    </div>
+    <div class="content-split">
+        <div class="code-area">
+            <div class="code-window">
+                <div class="window-header">
+                    <div class="circle red"></div><div class="circle yellow"></div><div class="circle green"></div>
+                    <span class="filename">AiPlanningService.java</span>
+                </div>
+                <div class="code-content">
+<span class="kw">public</span> <span class="cls">List</span>&lt;<span class="cls">AiFloor</span>&gt; <span class="fn">plan</span>(<span class="cls">String</span> goal) {
+    <span class="cmt">// Fallback: API Key가 없거나 오류 시 로컬 로직 사용</span>
+    <span class="kw">if</span> (apiKey == <span class="kw">null</span>) <span class="kw">return</span> fallbackPlan(goal);
+
+    <span class="kw">try</span> {
+        <span class="cmt">// 프롬프트 엔지니어링: JSON 응답 강제</span>
+        <span class="cls">String</span> prompt = <span class="str">"Split goal into steps. Return ONLY JSON: "</span> +
+                        <span class="str">"{\"floors\":[{\"title\":str, \"date\":\"YYYY-MM-DD\"}]}"</span>;
+
+        <span class="cls">Map</span>&lt;<span class="cls">String</span>, <span class="cls">Object</span>&gt; body = <span class="cls">Map</span>.of(
+            <span class="str">"model"</span>, <span class="str">"gpt-4o-mini"</span>,
+            <span class="str">"messages"</span>, <span class="cls">List</span>.of(
+                <span class="cls">Map</span>.of(<span class="str">"role"</span>, <span class="str">"system"</span>, <span class="str">"content"</span>, prompt),
+                <span class="cls">Map</span>.of(<span class="str">"role"</span>, <span class="str">"user"</span>, <span class="str">"content"</span>, <span class="str">"Goal: "</span> + goal)
+            )
+        );
+        
+        <span class="cmt">// OpenAI API 호출 및 파싱</span>
+        <span class="cls">String</span> response = restTemplate.postForObject(url, entity, <span class="cls">String</span>.class);
+        <span class="kw">return</span> parseFloorsFromResponse(response);
+
+    } <span class="kw">catch</span> (<span class="cls">Exception</span> e) {
+        log.error(<span class="str">"AI Error, using fallback"</span>);
+        <span class="kw">return</span> fallbackPlan(goal);
+    }
+}
+                </div>
+            </div>
+        </div>
+        <div class="text-area">
+            <h3>Prompt Engineering Strategy</h3>
+            <p>자연어 목표를 구조화된 데이터로 변환하기 위해 <strong>Strict JSON Format</strong>을 강제하는 전략을 사용했습니다.</p>
+            <ul>
+                <li><strong>JSON Enforcement:</strong> 응답 형식을 JSON으로 고정하여 파싱 에러 최소화</li>
+                <li><strong>Fallback Mechanism:</strong> API 장애 발생 시 서비스 중단을 막기 위한 로컬 알고리즘 자동 전환</li>
+                <li><strong>Atomic Save:</strong> 생성된 계획을 DB에 저장할 때 <code>@Transactional</code>로 무결성 보장</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Slide 5: Gamification -->
+<div class="slide">
+    <div class="slide-header">
+        <div class="slide-title">3. Gamification Logic</div>
+        <div class="slide-badge">Transaction</div>
+    </div>
+    <div class="content-split">
+        <div class="text-area">
+            <h3>Reward Transaction</h3>
+            <p>사용자 동기 부여를 위한 핵심 로직으로, 완료 처리와 보상 지급이 <strong>원자적(Atomic)</strong>으로 수행됩니다.</p>
+            <ul>
+                <li><strong>Integrity Check:</strong> 중복 보상 수령을 방지하기 위한 사전 검증 로직</li>
+                <li><strong>N:M Mapping:</strong> <code>FloorStatus</code> 테이블을 통해 User와 Floor의 완료 상태 관리</li>
+                <li><strong>Dirty Checking:</strong> JPA의 영속성 컨텍스트를 활용한 포인트 및 레벨 자동 업데이트</li>
+            </ul>
+        </div>
+        <div class="code-area">
+            <div class="code-window">
+                <div class="window-header">
+                    <div class="circle red"></div><div class="circle yellow"></div><div class="circle green"></div>
+                    <span class="filename">FloorService.java</span>
+                </div>
+                <div class="code-content">
+<span class="anno">@Transactional</span>
+<span class="kw">public void</span> <span class="fn">completeFloor</span>(<span class="cls">Long</span> floorId, <span class="cls">Long</span> userId) {
+    
+    <span class="cmt">// 1. 중복 완료 방지 (Validation)</span>
+    <span class="kw">if</span> (floorStatusRepo.existsByFloorIdAndUserId(floorId, userId)) {
+        <span class="kw">throw new</span> <span class="cls">IllegalStateException</span>(<span class="str">"이미 완료한 Floor입니다."</span>);
+    }
+
+    <span class="cmt">// 2. 완료 상태 기록 (Save)</span>
+    <span class="cls">FloorStatus</span> status = <span class="kw">new</span> <span class="cls">FloorStatus</span>();
+    status.setFloor(floorRepo.getReferenceById(floorId));
+    status.setUser(userRepo.getReferenceById(userId));
+    status.setIsCompleted(<span class="kw">true</span>);
+    floorStatusRepo.save(status);
+
+    <span class="cmt">// 3. 보상 지급 (+10 Points & Level Check)</span>
+    <span class="cls">UserProfile</span> profile = userProfileService.getProfile(userId);
+    profile.addPoints(<span class="num">10</span>);
+    profile.incrementPersonalLevel();
+}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Slide 6: Data Modeling -->
+<div class="slide">
+    <div class="slide-header">
+        <div class="slide-title">4. Flexible Data Modeling</div>
+        <div class="slide-badge">JSON Type</div>
+    </div>
+    <div class="content-split">
+        <div class="code-area">
+            <div class="code-window">
+                <div class="window-header">
+                    <div class="circle red"></div><div class="circle yellow"></div><div class="circle green"></div>
+                    <span class="filename">Character.java (Entity)</span>
+                </div>
+                <div class="code-content">
+<span class="anno">@Entity</span>
+<span class="anno">@Table</span>(name = <span class="str">"characters"</span>)
+<span class="kw">public class</span> <span class="cls">Character</span> {
+
+    <span class="anno">@Id</span> <span class="anno">@GeneratedValue</span>
+    <span class="kw">private</span> <span class="cls">Long</span> characterId;
+
+    <span class="anno">@OneToOne</span>(fetch = <span class="cls">FetchType</span>.LAZY)
+    <span class="anno">@JoinColumn</span>(name = <span class="str">"user_id"</span>)
+    <span class="kw">private</span> <span class="cls">User</span> user;
+
+    <span class="cmt">// 유연한 아이템 확장을 위한 JSON Mapping (PostgreSQL jsonb)</span>
+    <span class="cmt">// Example: {"head": 102, "face": 301, "acc": 505}</span>
+    
+    <span class="anno">@JdbcTypeCode</span>(SqlTypes.JSON)
+    <span class="anno">@Column</span>(name = <span class="str">"equipped_items"</span>, columnDefinition = <span class="str">"jsonb"</span>)
+    <span class="kw">private</span> <span class="cls">Map</span>&lt;<span class="cls">String</span>, <span class="cls">Object</span>&gt; equippedItems;
+
+    <span class="kw">public void</span> <span class="fn">equipItem</span>(<span class="cls">String</span> slot, <span class="cls">Integer</span> itemId) {
+        <span class="kw">this</span>.equippedItems.put(slot, itemId);
+    }
+}
+                </div>
+            </div>
+        </div>
+        <div class="text-area">
+            <h3>Hybrid Schema Strategy</h3>
+            <p>PostgreSQL의 강력한 JSON 지원 기능을 활용하여, <strong>RDB의 안정성</strong>과 <strong>NoSQL의 유연성</strong>을 동시에 확보했습니다.</p>
+            <ul>
+                <li><strong>Schema Flexibility:</strong> 캐릭터 장착 슬롯이 추가/변경되어도 DB 스키마 마이그레이션 불필요</li>
+                <li><strong>Performance:</strong> 아이템 테이블과의 불필요한 조인을 제거하고 단일 쿼리로 조회</li>
+                <li><strong>Supabase:</strong> 관리형 PostgreSQL 환경에서 JSON 연산자를 활용한 효율적 데이터 관리</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Slide 7: Troubleshooting (N+1) -->
+<div class="slide">
+    <div class="slide-header">
+        <div class="slide-title">5. Troubleshooting (N+1 Problem)</div>
+        <div class="slide-badge" style="background: #ffebe9; color: #cf222e;">Performance</div>
+    </div>
+    <div class="content-split">
+        <div class="text-area">
+            <h3>Issue & Solution</h3>
+            <p>일정 목록(Schedule) 조회 시 각 일정에 포함된 하위 계획(Floors)을 가져오며 발생하는 <strong>N+1 쿼리 문제</strong>를 해결했습니다.</p>
+            <ul>
+                <li><strong>Issue:</strong> Schedule 조회(1번) 후 각 Schedule마다 Floor 조회를 위한 추가 쿼리(N번) 발생</li>
+                <li><strong>Solution:</strong> JPA <code>@EntityGraph</code>를 사용하여 연관된 데이터를 한 번의 쿼리(Left Outer Join)로 함께 로딩</li>
+                <li><strong>Result:</strong> 쿼리 수 1/N 감소로 조회 성능 대폭 개선</li>
+            </ul>
+        </div>
+        <div class="code-area">
+            <div class="code-window">
+                <div class="window-header">
+                    <div class="circle red"></div><div class="circle yellow"></div><div class="circle green"></div>
+                    <span class="filename">ScheduleRepository.java</span>
+                </div>
+                <div class="code-content">
+<span class="kw">public interface</span> <span class="cls">ScheduleRepository</span> <span class="kw">extends</span> <span class="cls">JpaRepository</span>&lt;<span class="cls">Schedule</span>, <span class="cls">Long</span>&gt; {
+
+    <span class="cmt">// Problem: N+1 Query 발생</span>
+    <span class="cmt">// @Query("SELECT s FROM Schedule s WHERE s.user.id = :userId")</span>
+    <span class="cmt">// List&lt;Schedule&gt; findAllByUserId(Long userId);</span>
+
+    <span class="cmt">// Solution: Fetch Join 적용 (@EntityGraph)</span>
+    <span class="anno">@EntityGraph</span>(attributePaths = {<span class="str">"floors"</span>})
+    <span class="anno">@Query</span>(<span class="str">"SELECT s FROM Schedule s WHERE s.user.id = :userId"</span>)
+    <span class="cls">List</span>&lt;<span class="cls">Schedule</span>&gt; <span class="fn">findAllWithFloorsByUserId</span>(<span class="anno">@Param</span>(<span class="str">"userId"</span>) <span class="cls">Long</span> userId);
+}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Slide 8: API Documentation -->
+<div class="slide">
+    <div class="slide-header">
+        <div class="slide-title">6. API Documentation</div>
+        <div class="slide-badge" style="background: #ddf4ff; color: #0969da;">DevOps</div>
+    </div>
+    <div class="content-split">
+        <div class="code-area">
+            <div class="code-window">
+                <div class="window-header">
+                    <div class="circle red"></div><div class="circle yellow"></div><div class="circle green"></div>
+                    <span class="filename">SwaggerConfig.java</span>
+                </div>
+                <div class="code-content">
+<span class="anno">@Configuration</span>
+<span class="kw">public class</span> <span class="cls">SwaggerConfig</span> {
+
+    <span class="anno">@Bean</span>
+    <span class="kw">public</span> <span class="cls">OpenAPI</span> <span class="fn">openAPI</span>() {
+        <span class="cls">SecurityScheme</span> securityScheme = <span class="kw">new</span> <span class="cls">SecurityScheme</span>()
+                .type(<span class="cls">SecurityScheme</span>.<span class="cls">Type</span>.HTTP)
+                .scheme(<span class="str">"bearer"</span>)
+                .bearerFormat(<span class="str">"JWT"</span>)
+                .in(<span class="cls">SecurityScheme</span>.<span class="cls">In</span>.HEADER)
+                .name(<span class="str">"Authorization"</span>);
+
+        <span class="cls">SecurityRequirement</span> securityRequirement = <span class="kw">new</span> <span class="cls">SecurityRequirement</span>()
+                .addList(<span class="str">"bearerAuth"</span>);
+
+        <span class="kw">return new</span> <span class="cls">OpenAPI</span>()
+                .components(<span class="kw">new</span> <span class="cls">Components</span>().addSecuritySchemes(<span class="str">"bearerAuth"</span>, securityScheme))
+                .security(<span class="cls">List</span>.of(securityRequirement))
+                .info(<span class="kw">new</span> <span class="cls">Info</span>()
+                        .title(<span class="str">"Floorida API Docs"</span>)
+                        .version(<span class="str">"v1.0.0"</span>)
+                        .description(<span class="str">"Gamification Schedule Platform API"</span>));
+    }
+}
+                </div>
+            </div>
+        </div>
+        <div class="text-area">
+            <h3>Automated Documentation</h3>
+            <p>프론트엔드 팀과의 원활한 협업을 위해 <strong>Swagger (SpringDoc)</strong>를 도입하여 API 문서를 자동화했습니다.</p>
+            <ul>
+                <li><strong>Auto-Sync:</strong> 코드 변경 시 문서가 실시간으로 동기화되어 유지보수 비용 절감</li>
+                <li><strong>Interactive UI:</strong> Swagger UI에서 인증(JWT)을 포함한 API 테스트 가능</li>
+                <li><strong>Standard:</strong> OpenAPI 3.0 표준을 준수하여 명확한 인터페이스 정의</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Slide 9: Deployment & Infrastructure -->
+<div class="slide">
+    <div class="slide-header">
+        <div class="slide-title">7. Infrastructure & Deployment</div>
+        <div class="slide-badge">Architecture</div>
+    </div>
+    <div class="content-split">
+        <div class="text-area">
+            <h3>Cloud Native Strategy</h3>
+            <p>관리 포인트 최소화와 안정성을 위해 <strong>Managed Service</strong> 위주의 인프라를 구축했습니다.</p>
+            <ul>
+                <li><strong>Database:</strong> Supabase (PostgreSQL) - 백업 및 관리 용이</li>
+                <li><strong>Storage:</strong> AWS S3 - 캐릭터 이미지 및 정적 리소스 호스팅</li>
+            </ul>
+        </div>
+        <div class="code-area">
+            <div class="code-window">
+                <div class="window-header">
+                    <div class="circle red"></div><div class="circle yellow"></div><div class="circle green"></div>
+                    <span class="filename">application-prod.yml</span>
+                </div>
+                <div class="code-content">
+<span class="kw">spring:</span>
+  <span class="kw">datasource:</span>
+    <span class="kw">url:</span> jdbc:postgresql://aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres
+    <span class="kw">username:</span> <span class="str">${DB_USERNAME}</span>
+    <span class="kw">password:</span> <span class="str">${DB_PASSWORD}</span>
+  
+  <span class="kw">jpa:</span>
+    <span class="kw">hibernate:</span>
+      <span class="kw">ddl-auto:</span> validate
+    <span class="kw">show-sql:</span> false
+
+<span class="kw">cloud:</span>
+  <span class="kw">aws:</span>
+    <span class="kw">s3:</span>
+      <span class="kw">bucket:</span> floorida-assets-prod
+    <span class="kw">credentials:</span>
+      <span class="kw">access-key:</span> <span class="str">${AWS_ACCESS_KEY}</span>
+      <span class="kw">secret-key:</span> <span class="str">${AWS_SECRET_KEY}</span>
+
+<span class="kw">logging:</span>
+  <span class="kw">level:</span>
+    <span class="kw">root:</span> INFO
+    <span class="kw">com.floorida:</span> INFO
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Slide 10: Closing -->
+<div class="slide" style="justify-content: center; align-items: center; text-align: center; background: linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%);">
+    <h1 style="font-size: 80px; font-weight: 900; color: #1a1a1a; margin-bottom: 20px;">Thank You</h1>
+    <h2 style="font-size: 32px; color: #57606a; font-weight: 500;">Q & A</h2>
+    <div style="margin-top: 60px; padding-top: 30px; border-top: 1px solid #dfe1e5;">
+        <p style="font-family: 'JetBrains Mono'; color: #0969da; font-weight: 600;">github.com/floorida/backend</p>
+    </div>
+</div>
+
+</body>
+</html>
